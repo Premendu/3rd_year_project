@@ -1,0 +1,72 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Password Strength Analyzer — Web UI</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Password Strength Analyzer</h1>
+    <form method="post" action="/">
+      <label>Node Role (root/admin/developer/user/guest)</label>
+      <input name="node_role" placeholder="e.g. admin" />
+
+      <label>Access Level</label>
+      <select name="access_level">
+        <option value="1">1 - Super Admin</option>
+        <option value="2">2 - Administrator</option>
+        <option value="3">3 - Power User</option>
+        <option value="4">4 - Standard User</option>
+        <option value="5">5 - Guest</option>
+      </select>
+
+      <label>Password</label>
+      <input name="password" type="password" placeholder="Enter password to analyze" />
+
+      <div class="actions">
+        <button type="submit">Analyze</button>
+      </div>
+    </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flashes">
+          {% for category, msg in messages %}
+            <div class="flash {{ category }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% if result %}
+    <div class="result">
+      <h2>Result</h2>
+      <p><strong>Role:</strong> {{ result.role }} ({{ result.permissions }})</p>
+      <p><strong>Vulnerable:</strong> {{ 'Yes' if result.vulnerable else 'No' }}</p>
+      <p><strong>Reason:</strong> {{ result.reason }}</p>
+      <p><strong>Password Strength:</strong> {{ result.strength }}</p>
+      <p><strong>Score:</strong> {{ result.score }}/100</p>
+      <p><strong>Overall Risk:</strong> {{ result.risk }}</p>
+
+      {% if result.reasons %}
+      <div class="weaknesses">
+        <h3>Weaknesses / Suggestions</h3>
+        <ul>
+          {% for r in result.reasons %}
+            <li>{{ r }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% else %}
+        <p class="ok">Password looks strong. Consider enabling MFA for privileged accounts.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+  <script src="/static/script.js"></script>
+</body>
+</html>
