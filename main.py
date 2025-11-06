@@ -1,7 +1,7 @@
 # main.py
 from roles import role_access
 from analyzer import check_password_strength, password_score, classify_risk
-from logger import log_to_csv
+from logger_csv import log_to_csv
 
 
 def main():

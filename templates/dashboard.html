@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Dashboard - Recent Logs</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Dashboard — Recent Analyses</h1>
+    <a class="link-btn" href="/">Back</a>
+    <div style="margin-top:12px;">
+      <img src="/summary.png" alt="summary chart" />
+    </div>
+    <table>
+      <thead>
+        <tr><th>Time</th><th>Node Role</th><th>Role</th><th>Access</th><th>Score</th><th>Risk</th><th>Breach</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row['timestamp'] }}</td>
+            <td>{{ row['node_role'] }}</td>
+            <td>{{ row['role'] }}</td>
+            <td>{{ row['access_level'] }}</td>
+            <td>{{ row['score'] }}</td>
+            <td>{{ row['risk'] }}</td>
+            <td>{{ row['breach_flag'] }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

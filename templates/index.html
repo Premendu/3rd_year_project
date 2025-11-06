@@ -1,15 +1,25 @@
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Password Strength Analyzer — Web UI</title>
+  <title>Password Strength Analyzer</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <div class="container">
-    <h1>Password Strength Analyzer</h1>
+    <h1>🔐 Password Strength Analyzer</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flashes">
+          {% for category, msg in messages %}
+            <div class="flash {{ category }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
     <form method="post" action="/">
       <label>Node Role (root/admin/developer/user/guest)</label>
       <input name="node_role" placeholder="e.g. admin" />
@@ -24,49 +34,100 @@
       </select>
 
       <label>Password</label>
-      <input name="password" type="password" placeholder="Enter password to analyze" />
+      <div class="pw-row">
+        <input id="passwordInput" name="password" type="password" placeholder="Enter password to analyze" />
+        <button id="generateBtn" type="button" class="tiny">Suggest</button>
+      </div>
 
-      <div class="actions">
+      <div id="suggestion" style="margin-top:8px; display:none;">
+        <strong>Suggested:</strong>
+        <code id="suggestedPW"></code>
+        <button id="copyBtn" type="button" class="tiny">Copy</button>
+      </div>
+
+      <div class="actions" style="margin-top:14px;">
         <button type="submit">Analyze</button>
+        <button id="clearBtn" type="button" class="linkish">Clear Output</button>
+        <a class="link-btn" href="/dashboard" target="_blank">View Logs (Dashboard)</a>
+        <a class="link-btn" href="/summary.png" target="_blank">View Summary Chart</a>
       </div>
     </form>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flashes">
-          {% for category, msg in messages %}
-            <div class="flash {{ category }}">{{ msg }}</div>
-          {% endfor %}
+    <div id="outputArea">
+      {% if result %}
+      <div class="result">
+        <h2>Result</h2>
+        <p><strong>Role:</strong> {{ result.role }} ({{ result.permissions }})</p>
+        <p><strong>Vulnerable:</strong> {{ 'Yes' if result.vulnerable else 'No' }}</p>
+        <p><strong>Reason:</strong> {{ result.reason }}</p>
+        <p><strong>Password Strength:</strong> {{ result.strength }}</p>
+        <p><strong>Score:</strong> {{ result.score }}/100</p>
+        <p><strong>Overall Risk:</strong> {{ result.risk }}</p>
+        <p><strong>SHA-256:</strong> <code>{{ result.sha256 }}</code></p>
+        <p><strong>Breach warning:</strong> {{ 'YES' if result.breach_flag else 'NO' }}</p>
+
+        {% if result.reasons %}
+        <div class="weaknesses">
+          <h3>Weaknesses / Suggestions</h3>
+          <ul>
+            {% for r in result.reasons %}
+              <li>{{ r }}</li>
+            {% endfor %}
+          </ul>
         </div>
-      {% endif %}
-    {% endwith %}
+        {% else %}
+          <p class="ok">Password looks strong. Consider enabling MFA for privileged accounts.</p>
+        {% endif %}
 
-    {% if result %}
-    <div class="result">
-      <h2>Result</h2>
-      <p><strong>Role:</strong> {{ result.role }} ({{ result.permissions }})</p>
-      <p><strong>Vulnerable:</strong> {{ 'Yes' if result.vulnerable else 'No' }}</p>
-      <p><strong>Reason:</strong> {{ result.reason }}</p>
-      <p><strong>Password Strength:</strong> {{ result.strength }}</p>
-      <p><strong>Score:</strong> {{ result.score }}/100</p>
-      <p><strong>Overall Risk:</strong> {{ result.risk }}</p>
-
-      {% if result.reasons %}
-      <div class="weaknesses">
-        <h3>Weaknesses / Suggestions</h3>
+        <h3>Crack-time estimates</h3>
         <ul>
-          {% for r in result.reasons %}
-            <li>{{ r }}</li>
+          {% for k,v in result.crack_summary.items() %}
+            <li><strong>{{ k }}:</strong> {{ v.readable }}</li>
           {% endfor %}
         </ul>
+
+        <form method="post" action="/download_pdf">
+          <input type="hidden" name="node_role" value="{{ result.node_role }}">
+          <input type="hidden" name="role" value="{{ result.role }}">
+          <input type="hidden" name="access_level" value="{{ request.form.get('access_level','') }}">
+          <input type="hidden" name="score" value="{{ result.score }}">
+          <input type="hidden" name="risk" value="{{ result.risk }}">
+          <input type="hidden" name="sha256" value="{{ result.sha256 }}">
+          {% for rr in result.reasons %}
+            <input type="hidden" name="reasons" value="{{ rr }}">
+          {% endfor %}
+          <button type="submit" class="linkish">Download PDF Report</button>
+        </form>
+
       </div>
-      {% else %}
-        <p class="ok">Password looks strong. Consider enabling MFA for privileged accounts.</p>
       {% endif %}
     </div>
+
+    {% if recent %}
+      <div class="recent">
+        <h3>Recent Analyses (latest first)</h3>
+        <table>
+          <thead>
+            <tr><th>Time</th><th>Node Role</th><th>Role</th><th>Access</th><th>Score</th><th>Risk</th></tr>
+          </thead>
+          <tbody>
+            {% for row in recent %}
+              <tr>
+                <td>{{ row['timestamp'] }}</td>
+                <td>{{ row['node_role'] }}</td>
+                <td>{{ row['role'] }}</td>
+                <td>{{ row['access_level'] }}</td>
+                <td>{{ row['score'] }}</td>
+                <td>{{ row['risk'] }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     {% endif %}
 
   </div>
+
   <script src="/static/script.js"></script>
 </body>
 </html>

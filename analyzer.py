@@ -1,5 +1,7 @@
 # analyzer.py
 import string
+import hashlib
+import math
 
 SYMBOLS = "!@#$%^&*()-_=+[]{};:'\",.<>?/|\\`~"
 COMMON_PASSWORDS = {
@@ -9,6 +11,8 @@ COMMON_PASSWORDS = {
 }
 KEYBOARD_ROWS = ["1234567890", "qwertyuiop", "asdfghjkl", "zxcvbnm"]
 
+def sha256_hash(password):
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 def charsets_in_password(pw):
     return {
@@ -18,7 +22,6 @@ def charsets_in_password(pw):
         'symbol': any(c in SYMBOLS for c in pw),
         'space': any(c.isspace() for c in pw),
     }
-
 
 def has_sequence(pw, min_len=3):
     p = pw.lower()
@@ -34,7 +37,6 @@ def has_sequence(pw, min_len=3):
                 return True
     return False
 
-
 def has_repeated_runs(pw, run_len=3):
     if not pw:
         return False
@@ -48,7 +50,6 @@ def has_repeated_runs(pw, run_len=3):
             count = 1
     return False
 
-
 def has_year_like(pw):
     for i in range(len(pw) - 3):
         chunk = pw[i:i + 4]
@@ -58,11 +59,9 @@ def has_year_like(pw):
                 return True
     return False
 
-
 def dictionary_word_present(pw):
     p = pw.lower()
     return any(w in p for w in COMMON_PASSWORDS)
-
 
 def check_password_strength(password, node_role=""):
     reasons = []
@@ -97,7 +96,6 @@ def check_password_strength(password, node_role=""):
     strength = "Password Strong" if not reasons else "Weak Password"
     return strength, reasons
 
-
 def password_score(password):
     score = 0
     sets = charsets_in_password(password)
@@ -118,13 +116,74 @@ def password_score(password):
 
     return max(0, min(100, score))
 
-
 def classify_risk(access_level, pw_score):
-    if access_level in (1, 2):
+    # Role-based thresholds; higher privileges require stronger passwords
+    if access_level in (1, 2):  # Super Admin / Admin
         if pw_score < 70: return "HIGH"
         elif pw_score < 85: return "MEDIUM"
         else: return "LOW"
-    elif access_level == 3:
+    elif access_level == 3:    # Power User
         return "MEDIUM" if pw_score < 60 else "LOW"
-    else:
+    else:                      # Standard User / Guest
         return "MEDIUM" if pw_score < 40 else "LOW"
+
+# --- crack time estimation ---
+def estimate_charset_size(password):
+    size = 0
+    if any(c.islower() for c in password): size += 26
+    if any(c.isupper() for c in password): size += 26
+    if any(c.isdigit() for c in password): size += 10
+    if any(c in SYMBOLS for c in password): size += len(SYMBOLS)
+    if any(ord(c) > 127 for c in password): size += 100
+    return max(size, 1)
+
+def human_readable_seconds(sec):
+    if sec is None:
+        return "Unknown"
+    try:
+        sec = float(sec)
+    except:
+        return "Unknown"
+    if sec == float('inf'):
+        return "Centuries+"
+    if sec < 1:
+        return f"{sec:.3f} seconds"
+    intervals = (
+        ('years', 60*60*24*365),
+        ('days', 60*60*24),
+        ('hours', 60*60),
+        ('minutes', 60),
+        ('seconds', 1),
+    )
+    parts = []
+    for name, count in intervals:
+        val = int(sec // count)
+        if val:
+            parts.append(f"{val} {name}")
+            sec -= val * count
+    return ', '.join(parts) if parts else "0 seconds"
+
+def estimate_crack_time_seconds(password, guesses_per_second=1e9):
+    L = len(password)
+    charset = estimate_charset_size(password)
+    # log10 approach to avoid overflow
+    log10_combos = L * math.log10(max(charset,1))
+    log10_seconds = log10_combos - math.log10(guesses_per_second)
+    if log10_seconds > 300:
+        return float('inf')
+    seconds = 10 ** log10_seconds
+    return seconds
+
+def crack_time_summary(password):
+    speeds = {
+        'Online throttled (100/s)': 100,
+        'Online fast (10k/s)': 1e4,
+        'Offline GPU (1e9/s)': 1e9,
+        'Strong offline (1e12/s)': 1e12,
+    }
+    summary = {}
+    for label, speed in speeds.items():
+        secs = estimate_crack_time_seconds(password, guesses_per_second=speed)
+        summary[label] = {'seconds': secs if secs != float('inf') else None,
+                          'readable': human_readable_seconds(secs)}
+    return summary
