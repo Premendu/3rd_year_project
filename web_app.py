@@ -11,6 +11,7 @@ from pdf_report import generate_pdf
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from flask import Flask
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
